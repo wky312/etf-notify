@@ -5,7 +5,7 @@ const { ETF_MAP } = require('./lib/etf-config');
 
 const PUSHOVER_API_TOKEN = process.env.PUSHOVER_API_TOKEN;
 const PUSHOVER_USER_KEY = process.env.PUSHOVER_USER_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 const LINE_USER_ID = process.env.LINE_USER_ID;
 
@@ -50,35 +50,26 @@ async function fetchPushoverImage() {
 }
 
 /**
- * Use Claude Vision API to extract ETF trades from screenshot.
+ * Use Gemini Vision API to extract ETF trades from screenshot.
  */
 async function ocrScreenshot(imageBase64) {
   const knownCodes = Object.keys(ETF_MAP).join(', ');
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
-      messages: [
+      contents: [
         {
-          role: 'user',
-          content: [
+          parts: [
             {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: 'image/jpeg',
+              inlineData: {
+                mimeType: 'image/jpeg',
                 data: imageBase64,
               },
             },
             {
-              type: 'text',
               text: `This is an ETF transaction table screenshot. Extract the (C)淨交易基數 column value for each 證券代號.
 Known ETF codes: ${knownCodes}.
 Return ONLY a JSON object like: {"00991A": -28, "00986D": -17}
@@ -91,7 +82,12 @@ If a code is not in the table, omit it. Return only the JSON, no other text.`,
   });
 
   const data = await res.json();
-  const text = data.content[0].text.trim();
+
+  if (!data.candidates || !data.candidates[0]) {
+    throw new Error(`Gemini API error: ${JSON.stringify(data)}`);
+  }
+
+  const text = data.candidates[0].content.parts[0].text.trim();
 
   // Parse JSON from response (handle possible markdown wrapping)
   const jsonMatch = text.match(/\{[^}]+\}/);

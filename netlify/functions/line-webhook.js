@@ -83,15 +83,45 @@ exports.handler = async (event) => {
   const body = JSON.parse(event.body);
   const events = body.events || [];
 
+  // Get bot's own user ID (for mention detection in groups)
+  let botUserId = null;
+
   for (const evt of events) {
     if (evt.type !== 'message' || evt.message.type !== 'text') continue;
 
-    const text = evt.message.text.trim();
+    const isGroup = evt.source.type === 'group' || evt.source.type === 'room';
+
+    // In groups: only respond when bot is mentioned
+    if (isGroup) {
+      const mentionees = evt.message.mention && evt.message.mention.mentionees;
+      if (!mentionees || mentionees.length === 0) continue;
+
+      // Fetch bot user ID once per request
+      if (!botUserId) {
+        try {
+          const botRes = await fetch('https://api.line.me/v2/bot/info', {
+            headers: { Authorization: `Bearer ${CHANNEL_ACCESS_TOKEN}` },
+          });
+          const botInfo = await botRes.json();
+          botUserId = botInfo.userId;
+        } catch (e) {
+          // Can't verify, skip
+          continue;
+        }
+      }
+
+      const botMentioned = mentionees.some((m) => m.userId === botUserId);
+      if (!botMentioned) continue;
+    }
+
+    // Strip bot mention (@BotName) from text before parsing
+    let text = evt.message.text.trim();
+    text = text.replace(/@\S+/g, '').trim();
 
     // Help command
-    if (text === '?' || text === 'help') {
+    if (text === '?' || text === 'help' || text === '') {
       await replyMessage(evt.replyToken,
-        '輸入 ETF 代號和基數，例如：\n00991A -28, 00986D -17\n\n或只輸入數字（順序：00991A, 00986D, 00998A）：\n-28 -17'
+        '輸入 ETF 代號和基數，例如：\n@Bot 00991A -28, 00986D -17\n\n或只輸入數字（順序：00991A, 00986D, 00998A）：\n@Bot -28 -17'
       );
       continue;
     }

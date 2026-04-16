@@ -1,46 +1,45 @@
 const fetch = require('node-fetch');
-const { ETF_MAP, BASE_UNITS } = require('./etf-config');
+const { ETF_MAP } = require('./etf-config');
 
-const API_URL = 'https://www.fhtrust.com.tw/api/assets';
+const PCF_API_URL = 'https://www.fhtrust.com.tw/api/ETFPcf';
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
   'Referer': 'https://www.fhtrust.com.tw/',
 };
 
 /**
- * Get today's date string in YYYYMMDD format (Taipei time).
- * If called before PCF is published, try previous business day.
+ * Get date string in YYYY/MM/DD format (Taipei time).
  */
 function getDateStr(daysAgo = 0) {
   const d = new Date();
   d.setHours(d.getHours() + 8); // UTC → Taipei
   d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().slice(0, 10).replace(/-/g, '');
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}/${m}/${day}`;
 }
 
 /**
- * Fetch 每現金申購/買回基數約當淨值 from fhtrust JSON API.
- * Formula: (pcf_FundNav / pcf_FundQissue) × BASE_UNITS
+ * Fetch 每現金申購/買回基數約當淨值 from /api/ETFPcf.
+ * Uses the pVal field directly — the authoritative value shown on the website.
  */
 async function fetchNavMultiplier(etfCode) {
   const config = ETF_MAP[etfCode];
   if (!config) throw new Error(`Unknown ETF: ${etfCode}`);
 
-  // Try today, then yesterday (PCF might not be published yet)
-  for (let daysAgo = 0; daysAgo <= 3; daysAgo++) {
+  // Try today, then previous days (PCF might not be published yet, or weekends)
+  for (let daysAgo = 0; daysAgo <= 5; daysAgo++) {
     const dateStr = getDateStr(daysAgo);
-    const url = `${API_URL}?fundID=${config.id}&qDate=${dateStr}`;
+    const url = `${PCF_API_URL}?fundID=${config.id}&pcfDate=${dateStr}`;
     try {
       const res = await fetch(url, { headers: HEADERS, timeout: 10000 });
       const data = await res.json();
 
-      if (data && data.result && data.result.length > 0) {
-        const result = data.result[0];
-        const fundNav = parseFloat(String(result.pcf_FundNav).replace(/,/g, ''));
-        const fundQissue = parseFloat(String(result.pcf_FundQissue).replace(/,/g, ''));
-
-        if (fundNav > 0 && fundQissue > 0) {
-          const navMultiplier = Math.round((fundNav / fundQissue) * BASE_UNITS);
+      const result = data && data.result && data.result[0];
+      if (result && result.pVal) {
+        const navMultiplier = parseInt(String(result.pVal).replace(/,/g, ''), 10);
+        if (navMultiplier > 0) {
           return {
             etfCode,
             name: config.name,
