@@ -1,0 +1,20 @@
+{
+  "name": "etf-notify",
+  "version": "1.0.0",
+  "description": "ETF subscription/redemption notifier via LINE Bot",
+  "private": true,
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
