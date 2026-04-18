@@ -1,4 +1,3 @@
-const { schedule } = require('@netlify/functions');
 const { fetchSheet } = require('./lib/sheet-reader');
 const { fetchNav } = require('./lib/fuhwa-api');
 const { createStateStore } = require('./lib/state-store');
@@ -88,6 +87,6 @@ async function run() {
   return { statusCode: 200, body: 'ok' };
 }
 
-// Schedule: Mon–Fri 22:00 Asia/Taipei = 14:00 UTC
-exports.handler = schedule('0 14 * * 1-5', async () => run());
+// Schedule declared in netlify.toml ([functions.fund-alert] schedule = "...")
+exports.handler = async () => run();
 exports.run = run; // exported for manual invocation / tests
