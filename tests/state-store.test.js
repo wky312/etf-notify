@@ -55,3 +55,74 @@ test('states for different funds do not collide', async () => {
   assert.equal(ra.drawdown['20D'].lastTier, 5);
   assert.equal(rb.drawdown['20D'].lastTier, 20);
 });
+
+// --- Upstash REST backend tests (inject fake fetch) ---
+
+function fakeUpstash() {
+  const data = new Map();
+  return async (url, { body }) => {
+    const cmd = JSON.parse(body);
+    const [op, key, value] = cmd;
+    if (op === 'GET') {
+      return {
+        ok: true,
+        async json() {
+          return { result: data.has(key) ? data.get(key) : null };
+        },
+      };
+    }
+    if (op === 'SET') {
+      data.set(key, value);
+      return { ok: true, async json() { return { result: 'OK' }; } };
+    }
+    return {
+      ok: false,
+      status: 400,
+      async text() { return `unsupported op ${op}`; },
+    };
+  };
+}
+
+const UPSTASH_OPTS = {
+  url: 'https://fake.upstash.io',
+  token: 'fake-token',
+};
+
+test('Upstash: getState returns emptyState when key missing', async () => {
+  const store = createStateStore({ ...UPSTASH_OPTS, fetchImpl: fakeUpstash() });
+  const state = await store.getState('03');
+  assert.equal(state.fundId, '03');
+  assert.equal(state.drawdown['20D'].lastTier, 0);
+});
+
+test('Upstash: setState then getState round-trips', async () => {
+  const store = createStateStore({ ...UPSTASH_OPTS, fetchImpl: fakeUpstash() });
+  const mutated = emptyState('03');
+  mutated.drawdown['60D'].lastTier = 20;
+  mutated.td9.sellCompleteDate = '2026-04-15';
+  await store.setState('03', mutated);
+  const read = await store.getState('03');
+  assert.equal(read.drawdown['60D'].lastTier, 20);
+  assert.equal(read.td9.sellCompleteDate, '2026-04-15');
+});
+
+test('Upstash: keys are prefixed so multiple fundIds do not collide', async () => {
+  const fetchImpl = fakeUpstash();
+  const store = createStateStore({ ...UPSTASH_OPTS, fetchImpl });
+  const a = emptyState('03');
+  a.rebound['20D'].lastTier = 10;
+  const b = emptyState('ETF23');
+  b.rebound['20D'].lastTier = 0;
+  await store.setState('03', a);
+  await store.setState('ETF23', b);
+  assert.equal((await store.getState('03')).rebound['20D'].lastTier, 10);
+  assert.equal((await store.getState('ETF23')).rebound['20D'].lastTier, 0);
+});
+
+test('Upstash: missing URL env var throws with helpful message', async () => {
+  const store = createStateStore({ token: 'x', fetchImpl: fakeUpstash() });
+  await assert.rejects(
+    () => store.getState('03'),
+    /UPSTASH_REDIS_REST_URL/
+  );
+});
