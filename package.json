@@ -4,8 +4,6 @@
   "description": "ETF subscription/redemption notifier via LINE Bot",
   "private": true,
   "dependencies": {
-    "@netlify/blobs": "^8.1.0",
-    "@netlify/functions": "^2.0.0",
     "node-fetch": "^2.7.0"
   },
   "main": "index.js",
