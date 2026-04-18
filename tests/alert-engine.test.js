@@ -41,9 +41,11 @@ test('drawdown crosses 5% tier → entry fires and state updates', () => {
 });
 
 test('drawdown same tier as last → no entry', () => {
+  // Daily move is tiny (-0.5%) so daily alert doesn't fire; drawdown is stuck at tier 5.
   const navs = [
     { date: '2026-04-01', value: 100 },
-    { date: '2026-04-02', value: 94 },
+    { date: '2026-04-02', value: 95 },
+    { date: '2026-04-03', value: 94.5 },
   ];
   const state = emptyState('03');
   state.drawdown['20D'].lastTier = 5;

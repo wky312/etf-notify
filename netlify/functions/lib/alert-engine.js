@@ -30,11 +30,9 @@ function evaluateFund(cfg, navs, state) {
 
   const ddTriggered = [];
   const ddUntriggered = [];
-  let suppressDaily = false;
   for (const d of drawdowns) {
     const currentTier = d.dd > 0 ? pickTier(d.dd, cfg.drawdownTiers) : 0;
     const ws = nextState.drawdown[d.label] || (nextState.drawdown[d.label] = { lastTier: 0, lastAlertDate: null });
-    const prevLastTier = ws.lastTier;
     const alert = detectDrawdownAlert(currentTier, d.dd, ws.lastTier);
     if (alert.reset) ws.lastTier = 0;
     if (alert.fire) {
@@ -42,12 +40,7 @@ function evaluateFund(cfg, navs, state) {
       ws.lastAlertDate = today.date;
       ddTriggered.push({ label: d.label, dd: d.dd, tier: alert.newTier, high: d.high, isNew: true });
     } else if (currentTier > 0) {
-      // untriggered-but-positive for context display
       ddUntriggered.push({ label: d.label, dd: d.dd, high: d.high });
-      // Suppress daily when we're stuck at the same positive tier (already acknowledged)
-      if (currentTier > 0 && currentTier === prevLastTier) {
-        suppressDaily = true;
-      }
     }
   }
 
@@ -117,7 +110,7 @@ function evaluateFund(cfg, navs, state) {
   }
 
   const daily =
-    !suppressDaily && Math.abs(dailyPct) >= cfg.dailyThreshold
+    Math.abs(dailyPct) >= cfg.dailyThreshold
       ? { pct: dailyPct, threshold: cfg.dailyThreshold }
       : null;
 
