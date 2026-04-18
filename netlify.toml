@@ -5,5 +5,5 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-[functions.fund-alert]
-  schedule = "0 14 * * 1-5"
+# Scheduled function moved to Vercel (see vercel.json). Netlify fund-alert
+# function still exists as a manual-invoke fallback but is no longer on cron.
