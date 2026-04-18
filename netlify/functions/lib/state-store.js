@@ -34,8 +34,11 @@ function createStateStore(opts = {}) {
 
 function lazyNetlifyBlobStore() {
   // Imported here so tests that inject a fake don't require network / Netlify context.
+  // Use default (eventual) consistency — strong mode requires an uncachedEdgeURL
+  // which connectLambda() doesn't provide. For our once-per-day schedule, eventual
+  // consistency is more than sufficient (state writes settle long before next read).
   const { getStore } = require('@netlify/blobs');
-  return getStore({ name: 'fund-alert-state', consistency: 'strong' });
+  return getStore('fund-alert-state');
 }
 
 module.exports = { emptyState, createStateStore };
