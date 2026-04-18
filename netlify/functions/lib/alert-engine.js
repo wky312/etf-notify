@@ -90,16 +90,16 @@ function evaluateFund(cfg, navs, state) {
     td9Entry.completeDate = td9.buyCompleteDate;
     const alreadyNotified = state.td9.lastNotifiedEventDate === td9.buyCompleteDate;
     td9Entry.isNewComplete = !alreadyNotified;
-    if (!alreadyNotified && td9.buyCompleteDate === today.date) {
-      nextState.td9.lastNotifiedEventDate = today.date;
+    if (!alreadyNotified) {
+      nextState.td9.lastNotifiedEventDate = td9.buyCompleteDate;
     }
   } else if (td9.sell === 9 && td9.sellCompleteDate) {
     td9Entry.completeSide = 'sell';
     td9Entry.completeDate = td9.sellCompleteDate;
     const alreadyNotified = state.td9.lastNotifiedEventDate === td9.sellCompleteDate;
     td9Entry.isNewComplete = !alreadyNotified;
-    if (!alreadyNotified && td9.sellCompleteDate === today.date) {
-      nextState.td9.lastNotifiedEventDate = today.date;
+    if (!alreadyNotified) {
+      nextState.td9.lastNotifiedEventDate = td9.sellCompleteDate;
     }
   } else if (td9.buy >= 6) {
     td9Entry.progressSide = 'buy';

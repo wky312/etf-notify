@@ -98,6 +98,27 @@ test('TD9 complete today produces isNewComplete=true', () => {
   assert.equal(nextState.td9.lastNotifiedEventDate, '2026-04-13');
 });
 
+test('TD9 complete in the past (not today) persists lastNotifiedEventDate so next run is 延續中', () => {
+  // Build a series where setup completed several bars ago, and today's bar is unrelated.
+  // Completion at bar 13 (13 descending), then 3 equal bars so count freezes at 9 and
+  // today isn't the completion day. Fresh state = first run. isNewComplete should be
+  // true AND lastNotifiedEventDate should be set to the completion date so subsequent
+  // runs see alreadyNotified=true.
+  const descending = Array.from({ length: 13 }, (_, i) => 100 - i); // completes buy at day 13
+  const tail = [descending[descending.length - 1], descending[descending.length - 1]]; // 2 flat days
+  const navs = navSeries([...descending, ...tail]);
+  const state = emptyState('03');
+  const { entry, nextState } = evaluateFund(cfg, navs, state);
+  assert.ok(entry);
+  assert.equal(entry.td9.completeSide, 'buy');
+  assert.equal(entry.td9.isNewComplete, true);
+  assert.equal(nextState.td9.lastNotifiedEventDate, '2026-04-13');
+  // Second run with persisted state → 延續中
+  const { entry: e2 } = evaluateFund(cfg, navs, nextState);
+  // Entry may still exist (other triggers) or be null; key check is isNewComplete=false
+  if (e2) assert.equal(e2.td9.isNewComplete, false);
+});
+
 test('TD9 complete already notified → isNewComplete=false (延續中)', () => {
   const closes = Array.from({ length: 13 }, (_, i) => 100 - i);
   const navs = navSeries(closes);
