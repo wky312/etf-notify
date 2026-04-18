@@ -52,12 +52,17 @@ https://docs.google.com/spreadsheets/d/e/2PACX-1vR8zfB4ZxJ8FI0FJkyXgN-ha1aHU9Nbq
 
 ```
 GET https://www.fhtrust.com.tw/api/fundNav?fundID={id}&sDate=YYYY/MM/DD&eDate=YYYY/MM/DD
-Headers: { Referer: https://www.fhtrust.com.tw/ }
+
+Headers（實測必要，否則 F5 BIG-IP 會擋）:
+  User-Agent: Mozilla/5.0 ...（正常瀏覽器 UA）
+  Referer:    https://www.fhtrust.com.tw/funds/funds_detail/{id}   # 基金
+              https://www.fhtrust.com.tw/ETF/etf_detail/{id}       # ETF
 ```
 
 - **基金和 ETF 共用同一 endpoint**（`fundID` 參數接受 `03`、`ETF23` 等格式）
 - `result[]` 陣列，每筆 `pnav` 為 NAV（字串），`navDate` 為日期（`YYYY/MM/DD`）
-- 單次請求最多 3 年，系統抓過去 1 年即足夠（252 交易日 + buffer）
+- **實測 2 年窗口 API 會截斷回傳（JSON 尾端不完整）**；需**分成兩個 1 年 chunk** 取得 ~252 交易日資料後合併去重
+- 實作需要：UA header、每檔專屬 Referer、chunk 之間的 small delay（例 500ms）避免 bot rate limit
 
 ---
 
@@ -173,24 +178,32 @@ Netlify Schedule
 {
   "buy_setup_count": 6,
   "sell_setup_count": 0,
+  "buy_complete_date": null,
+  "sell_complete_date": "2026-04-15",
   "last_event_date": "2026-04-18"
 }
 ```
 
 **每日更新規則：**
-- `today_close < close_4_days_ago` → `buy_setup_count += 1`；`sell_setup_count = 0`
-- `today_close > close_4_days_ago` → `sell_setup_count += 1`；`buy_setup_count = 0`
-- 相等 → 兩邊維持不變
+- `today_close < close_4_days_ago`：
+  - 若 `sell_setup_count ≥ 6` → 推送 sell_reset 事件
+  - `sell_setup_count = 0`，`sell_complete_date = null`
+  - 若 `buy_setup_count < 9` → `buy_setup_count += 1`
+  - 若 `buy_setup_count` 本日達到 9 → 推送 buy_complete 事件，記錄 `buy_complete_date = today`
+- `today_close > close_4_days_ago`：對稱處理
+- 相等 → 兩邊維持不變（不歸零、不遞增）
+- **達到 9 後 count 凍結在 9**，不再遞增，直到反轉才歸零
 
 **通知時機（3 種事件）：**
 
 | 事件 | 條件 | 訊息 |
 |---|---|---|
-| **完成** | `count` 達 9 | `TD9: Buy Setup 9 完成（perfected/imperfect）` |
+| **完成** | `count` 達 9 當天 | `TD9: Buy Setup 9 完成於 YYYY/MM/DD ← NEW` |
+| **完成延續** | `count == 9`，但 `complete_date` 不是今日 | `TD9: Buy Setup 9 完成於 YYYY/MM/DD（延續中）` |
+| **進行中** | `6 ≤ count < 9` | `TD9: Buy Setup N/9 進行中` |
 | **重置** | `count` 從 `≥6` 掉回 0 | `TD9: Buy Setup 在第 N 天被反轉重置` |
-| **進行中** | `count ≥ 6` | 僅在當日有其他警訊時附加一行 `TD9: Buy Setup 6/9 進行中` |
 
-**Perfected 判定**：buy setup 9 完成時，若第 8 或第 9 bar 的 low 低於第 6 或第 7 bar 的 low，為 perfected；反之 imperfect。sell setup 對稱。
+**Perfected 判定**：buy setup 9 完成時，若第 8 或第 9 bar 的 low 低於第 6 或第 7 bar 的 low，為 perfected；反之 imperfect。sell setup 對稱。（簡化版 Phase 1 可先不標記 perfected；若需要後續補上。）
 
 ### 5.5 警訊合併
 
@@ -200,28 +213,55 @@ Netlify Schedule
 
 ## 6. 訊息格式（Phase 1 純文字）
 
+**實際範例（由 `scripts/preview-fund-alert.js` 產出、已在 2026-04-18 推測過）：**
+
 ```
-📊 2026-04-18 警訊摘要（5 檔監控中，2 檔觸發）
+📊 2026/04/17 警訊摘要（5 檔監控中，3 檔觸發）
 
 ━━━━━━━━━━
 高成長（03）
+NAV: 352.74 (2026/04/17)
 ⚠️ 跌幅
-• 20D: -7.2% [觸發 5%] ← NEW
-• 60D: -12.8% [觸發 10%] ← NEW
+• 20D: -7.2% [觸發 5%]（高點 2026/03/15）← NEW
+• 60D: -12.8% [觸發 10%]（高點 2026/02/14）← NEW
 📈 TD9: Buy Setup 6/9 進行中
 💬 單日: -1.1%
 
 ━━━━━━━━━━
 00991A（ETF23）
+NAV: 14.64 (2026/04/17)
 📉 TD9: Sell Setup 在第 7 天被反轉重置
+
+━━━━━━━━━━
+物聯網（77）
+NAV: 70.73 (2026/04/16)
+📈 反彈
+• 20D: +32.5% [觸發 10%]（低點 2026/03/31）← NEW
+📉 TD9: Sell Setup 9 完成於 2026/04/15（延續中）
 ```
 
 **排版規則：**
-- 開頭總覽行：總數 + 觸發數
-- 每檔用 `━━━━━━━━━━` 分隔
-- 順序：跌幅警訊 → 反彈警訊 → TD9 事件 → 單日變動
-- 檔位後方 `← NEW` 標示本次新觸發（已跨到更高檔位）
-- 無任何警訊的日子 → **不推任何訊息**（避免雜訊）
+
+- **開頭總覽**：`📊 YYYY/MM/DD 警訊摘要（N 檔監控中，M 檔觸發）`
+- **每檔用 `━━━━━━━━━━` 分隔**
+- **每個 entry 第二行固定顯示 NAV**：`NAV: {value} ({YYYY/MM/DD})`
+- **順序**：跌幅警訊 → 反彈警訊 → TD9 → 單日變動
+- **日期一律用 `YYYY/MM/DD` 格式**（台灣閱讀習慣，不用 ISO `YYYY-MM-DD`）
+- **窗口警訊附高/低點日期**：
+  - 跌幅：`• 20D: -7.2% [觸發 5%]（高點 2026/03/15）← NEW`
+  - 反彈：`• 20D: +32.5% [觸發 10%]（低點 2026/03/31）← NEW`
+- **TD9 事件顯示**：
+  - **完成（今日）**：`📈 TD9: Buy Setup 9 完成於 YYYY/MM/DD ← NEW`
+  - **完成（延續）**：`📈 TD9: Buy Setup 9 完成於 YYYY/MM/DD（延續中）`—— `← NEW` 前留一個半形空格；`（延續中）` 緊貼日期
+  - **進行中**：`📈 TD9: Buy Setup N/9 進行中`（僅 `6 ≤ N < 9` 時顯示）
+  - **重置**：`📉 TD9: Buy Setup 在第 N 天被反轉重置`（`N ≥ 6` 才顯示）
+- **`← NEW` 顯示規則**：
+  - 跌幅：當前 tier > 上次通知的 tier
+  - 反彈：首次跨過 rebound_threshold（上次 `last_tier=0`）
+  - TD9 完成：事件日期 == 今日
+  - TD9 重置：永遠僅在重置當日發
+  - 單日變動：不標 `← NEW`（本來就是當日事件）
+- **無任何警訊的日子 → 不推訊息**（避免雜訊）
 
 ---
 
@@ -258,6 +298,8 @@ Blob key：`fund-alert-state/{fund_id}.json`
   "td9": {
     "buy_setup_count": 6,
     "sell_setup_count": 0,
+    "buy_complete_date": null,
+    "sell_complete_date": null,
     "last_event_date": "2026-04-12",
     "last_event_type": "buy_setup_progress"
   }
