@@ -1,3 +1,4 @@
+const { connectLambda } = require('@netlify/blobs');
 const { fetchSheet } = require('./lib/sheet-reader');
 const { fetchNav } = require('./lib/fuhwa-api');
 const { createStateStore } = require('./lib/state-store');
@@ -88,5 +89,9 @@ async function run() {
 }
 
 // Schedule declared in netlify.toml ([functions.fund-alert] schedule = "...")
-exports.handler = async () => run();
+exports.handler = async (event) => {
+  // Lambda compatibility: initialise Blobs env from the event before any getStore call.
+  if (event) connectLambda(event);
+  return run();
+};
 exports.run = run; // exported for manual invocation / tests
