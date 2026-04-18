@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { navReferer, parseNavResponse, fetchNav } = require('../netlify/functions/lib/fuhwa-api');
+const { navReferer, parseNavResponse, fetchNav } = require('../lib/fuhwa-api');
 
 test('navReferer: fund ID uses funds_detail path', () => {
   assert.equal(navReferer('03'), 'https://www.fhtrust.com.tw/funds/funds_detail/03');

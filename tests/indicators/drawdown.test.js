@@ -6,7 +6,7 @@ const {
   computeDrawdowns,
   computeRebound,
   detectDrawdownAlert,
-} = require('../../netlify/functions/lib/indicators/drawdown');
+} = require('../../lib/indicators/drawdown');
 
 const sample = [
   { date: '2026-03-01', value: 100 },

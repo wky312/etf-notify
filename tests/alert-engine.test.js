@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { evaluateFund } = require('../netlify/functions/lib/alert-engine');
-const { emptyState } = require('../netlify/functions/lib/state-store');
+const { evaluateFund } = require('../lib/alert-engine');
+const { emptyState } = require('../lib/state-store');
 
 const cfg = {
   fundId: '03',

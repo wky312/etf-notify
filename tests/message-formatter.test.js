@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {
   formatMessage,
   fmtDisplayDate,
-} = require('../netlify/functions/lib/message-formatter');
+} = require('../lib/message-formatter');
 
 test('fmtDisplayDate: YYYY-MM-DD → YYYY/MM/DD', () => {
   assert.equal(fmtDisplayDate('2026-04-17'), '2026/04/17');

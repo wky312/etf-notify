@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
-const { fetchAllNavMultipliers } = require('./lib/fetch-nav');
-const { formatMessage } = require('./lib/calculate');
-const { ETF_MAP } = require('./lib/etf-config');
+const { fetchAllNavMultipliers } = require('../../lib/fetch-nav');
+const { formatMessage } = require('../../lib/calculate');
+const { ETF_MAP } = require('../../lib/etf-config');
 
 const PUSHOVER_API_TOKEN = process.env.PUSHOVER_API_TOKEN;
 const PUSHOVER_USER_KEY = process.env.PUSHOVER_USER_KEY;

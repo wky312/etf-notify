@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseSheetCsv } = require('../netlify/functions/lib/sheet-reader');
+const { parseSheetCsv } = require('../lib/sheet-reader');
 
 test('parses a single fund row with all fields filled', () => {
   const csv =

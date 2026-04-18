@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { computeTd9 } = require('../../netlify/functions/lib/indicators/td9');
+const { computeTd9 } = require('../../lib/indicators/td9');
 
 function navSeries(closes) {
   return closes.map((v, i) => ({

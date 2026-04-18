@@ -1,14 +1,14 @@
 const crypto = require('crypto');
 const fetch = require('node-fetch');
-const { fetchAllNavMultipliers } = require('./lib/fetch-nav');
-const { formatMessage } = require('./lib/calculate');
-const { ETF_MAP } = require('./lib/etf-config');
-const { fetchSheet } = require('./lib/sheet-reader');
-const { fetchNav } = require('./lib/fuhwa-api');
-const { computeDrawdowns } = require('./lib/indicators/drawdown');
-const { computeTd9 } = require('./lib/indicators/td9');
-const { formatStatus } = require('./lib/message-formatter');
-const { WINDOWS } = require('./lib/alert-engine');
+const { fetchAllNavMultipliers } = require('../../lib/fetch-nav');
+const { formatMessage } = require('../../lib/calculate');
+const { ETF_MAP } = require('../../lib/etf-config');
+const { fetchSheet } = require('../../lib/sheet-reader');
+const { fetchNav } = require('../../lib/fuhwa-api');
+const { computeDrawdowns } = require('../../lib/indicators/drawdown');
+const { computeTd9 } = require('../../lib/indicators/td9');
+const { formatStatus } = require('../../lib/message-formatter');
+const { WINDOWS } = require('../../lib/alert-engine');
 
 const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;

@@ -1,10 +1,10 @@
 const { connectLambda } = require('@netlify/blobs');
-const { fetchSheet } = require('./lib/sheet-reader');
-const { fetchNav } = require('./lib/fuhwa-api');
-const { createStateStore } = require('./lib/state-store');
-const { evaluateFund } = require('./lib/alert-engine');
-const { formatMessage } = require('./lib/message-formatter');
-const { pushText } = require('./lib/line-push');
+const { fetchSheet } = require('../../lib/sheet-reader');
+const { fetchNav } = require('../../lib/fuhwa-api');
+const { createStateStore } = require('../../lib/state-store');
+const { evaluateFund } = require('../../lib/alert-engine');
+const { formatMessage } = require('../../lib/message-formatter');
+const { pushText } = require('../../lib/line-push');
 
 async function run() {
   let funds;

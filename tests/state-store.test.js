@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createStateStore, emptyState } = require('../netlify/functions/lib/state-store');
+const { createStateStore, emptyState } = require('../lib/state-store');
 
 function fakeBlobStore() {
   const blobs = new Map();
