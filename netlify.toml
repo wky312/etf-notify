@@ -6,4 +6,4 @@
   node_bundler = "esbuild"
 
 [functions.fund-alert]
-  schedule = "*/2 * * * *"
+  schedule = "0 14 * * 1-5"
