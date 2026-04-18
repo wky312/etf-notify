@@ -3,6 +3,12 @@ const fetch = require('node-fetch');
 const { fetchAllNavMultipliers } = require('./lib/fetch-nav');
 const { formatMessage } = require('./lib/calculate');
 const { ETF_MAP } = require('./lib/etf-config');
+const { fetchSheet } = require('./lib/sheet-reader');
+const { fetchNav } = require('./lib/fuhwa-api');
+const { computeDrawdowns } = require('./lib/indicators/drawdown');
+const { computeTd9 } = require('./lib/indicators/td9');
+const { formatStatus } = require('./lib/message-formatter');
+const { WINDOWS } = require('./lib/alert-engine');
 
 const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -65,6 +71,40 @@ async function replyMessage(replyToken, text) {
   });
 }
 
+async function handleStatusCommand() {
+  const funds = await fetchSheet();
+  const enabled = funds.filter((f) => f.enabled);
+  const summaries = [];
+  let latestDate = null;
+  for (const cfg of enabled) {
+    try {
+      const navs = await fetchNav(cfg.fundId);
+      if (navs.length === 0) continue;
+      const latest = navs[navs.length - 1];
+      if (!latestDate || latest.date > latestDate) latestDate = latest.date;
+      const drawdowns = computeDrawdowns(navs, WINDOWS);
+      const td9 = computeTd9(navs);
+      summaries.push({
+        fundId: cfg.fundId,
+        displayName: cfg.displayName,
+        drawdowns,
+        td9,
+      });
+    } catch (e) {
+      summaries.push({
+        fundId: cfg.fundId,
+        displayName: cfg.displayName,
+        drawdowns: [],
+        td9: { buy: 0, sell: 0 },
+        error: e.message,
+      });
+    }
+  }
+  return formatStatus(summaries, {
+    latestDate: latestDate || new Date().toISOString().slice(0, 10),
+  });
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'GET') {
     return { statusCode: 200, body: 'OK' };
@@ -123,6 +163,17 @@ exports.handler = async (event) => {
       await replyMessage(evt.replyToken,
         '輸入 ETF 代號和基數，例如：\n@Bot 00991A -28, 00986D -17\n\n或只輸入數字（順序：00991A, 00986D, 00998A）：\n@Bot -28 -17'
       );
+      continue;
+    }
+
+    // Fund alert status query
+    if (text === '/status') {
+      try {
+        const reply = await handleStatusCommand();
+        await replyMessage(evt.replyToken, reply);
+      } catch (e) {
+        await replyMessage(evt.replyToken, `狀態查詢失敗: ${e.message}`);
+      }
       continue;
     }
 
