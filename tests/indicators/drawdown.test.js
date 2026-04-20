@@ -5,6 +5,7 @@ const {
   pickTier,
   computeDrawdowns,
   computeRebound,
+  computePeriodReturns,
   detectDrawdownAlert,
 } = require('../../lib/indicators/drawdown');
 
@@ -77,4 +78,54 @@ test('detectDrawdownAlert: reset when dd drops below 2%', () => {
   const r = detectDrawdownAlert(0, 1, 10);
   assert.equal(r.fire, false);
   assert.equal(r.reset, true);
+});
+
+test('computePeriodReturns: returns positive % when price rose over window', () => {
+  const navs = [
+    { date: '2026-03-01', value: 100 },
+    { date: '2026-03-02', value: 105 },
+    { date: '2026-03-03', value: 110 },
+    { date: '2026-03-04', value: 120 }, // today
+  ];
+  const returns = computePeriodReturns(navs, [
+    { label: '1D', days: 1 },
+    { label: '3D', days: 3 },
+  ]);
+  assert.equal(returns.length, 2);
+  // 1D: 120 vs 110 → +9.09%
+  assert.ok(Math.abs(returns[0].ret - 9.09) < 0.1);
+  assert.equal(returns[0].bars, 1);
+  assert.equal(returns[0].from.date, '2026-03-03');
+  // 3D: 120 vs 100 → +20%
+  assert.ok(Math.abs(returns[1].ret - 20) < 0.01);
+  assert.equal(returns[1].from.date, '2026-03-01');
+});
+
+test('computePeriodReturns: returns negative % when price fell over window', () => {
+  const navs = [
+    { date: '2026-03-01', value: 100 },
+    { date: '2026-03-02', value: 80 },
+  ];
+  const [r] = computePeriodReturns(navs, [{ label: '1D', days: 1 }]);
+  // 80 vs 100 → -20%
+  assert.ok(Math.abs(r.ret - (-20)) < 0.01);
+});
+
+test('computePeriodReturns: clamps window to available bars', () => {
+  const navs = [
+    { date: '2026-03-01', value: 100 },
+    { date: '2026-03-02', value: 120 },
+  ];
+  // Ask for 252D but only have 2 bars → compare to first bar (1 bar back)
+  const [r] = computePeriodReturns(navs, [{ label: '252D', days: 252 }]);
+  assert.equal(r.bars, 1);
+  assert.ok(Math.abs(r.ret - 20) < 0.01);
+});
+
+test('computePeriodReturns: returns empty array when <2 bars', () => {
+  assert.deepEqual(computePeriodReturns([], [{ label: '20D', days: 20 }]), []);
+  assert.deepEqual(
+    computePeriodReturns([{ date: '2026-03-01', value: 100 }], [{ label: '20D', days: 20 }]),
+    []
+  );
 });

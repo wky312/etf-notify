@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<!--
+  簡報：用 AI 做一個 LINE Bot 警訊系統
+  每張投影片是一個 <section>，修改內容就在 <section>...</section> 之間。
+  加/刪一張直接複製整個 <section> 區塊。
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用 AI 做一個 LINE Bot 警訊系統</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css" id="theme">
+
+  <style>
+    /* ── 全域字體：優先用中文系統字體 ── */
+    .reveal {
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei",
+                   -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #1e293b;
+    }
+    .reveal h1, .reveal h2, .reveal h3 {
+      font-family: inherit;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .reveal h1 { font-size: 2.4em; }
+    .reveal h2 { font-size: 1.8em; margin-bottom: 0.5em; }
+    .reveal h3 { font-size: 1.3em; color: #334155; }
+
+    /* 小字、弱化 */
+    .muted { color: #64748b; font-size: 0.75em; }
+    .small { font-size: 0.75em; }
+
+    /* 強調色 */
+    .accent { color: #10b981; font-weight: 700; }
+    .line-green { color: #06C755; font-weight: 700; }
+    .warn { color: #dc2626; }
+
+    /* ── LINE 對話泡泡 ── */
+    .chat {
+      background: #7F9DA9;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 680px;
+      margin: 0 auto;
+      text-align: left;
+      font-size: 0.7em;
+    }
+    .bubble {
+      background: #fff;
+      border-radius: 16px;
+      padding: 14px 18px;
+      margin: 6px 0;
+      max-width: 90%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      white-space: pre-wrap;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+    .bubble.user {
+      background: #a3e4b7;
+      margin-left: auto;
+      margin-right: 0;
+      border-bottom-right-radius: 4px;
+    }
+    .bubble.bot {
+      border-bottom-left-radius: 4px;
+    }
+    .chat-name {
+      color: #fff;
+      font-size: 0.85em;
+      margin-bottom: 4px;
+      opacity: 0.9;
+    }
+
+    /* ── 流程 / 對照表 ── */
+    .flow {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 40px;
+    }
+    .flow-step {
+      background: #f1f5f9;
+      border-radius: 12px;
+      padding: 20px 24px;
+      min-width: 140px;
+      text-align: center;
+      border: 2px solid transparent;
+    }
+    .flow-step.highlight {
+      border-color: #10b981;
+      background: #ecfdf5;
+    }
+    .flow-arrow {
+      font-size: 1.5em;
+      color: #94a3b8;
+    }
+
+    /* 對比 before/after */
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 20px;
+      text-align: left;
+    }
+    .compare > div {
+      padding: 20px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      line-height: 1.55;
+    }
+    .compare .bad {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+    .compare .good {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+    .compare .tag {
+      display: inline-block;
+      font-size: 0.8em;
+      padding: 2px 10px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .compare .bad .tag { background: #fecaca; color: #991b1b; }
+    .compare .good .tag { background: #bbf7d0; color: #065f46; }
+
+    /* 統計數字卡 */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 30px;
+    }
+    .stat-card {
+      background: #f8fafc;
+      border-left: 4px solid #10b981;
+      padding: 20px 24px;
+      border-radius: 4px;
+      text-align: left;
+    }
+    .stat-num {
+      font-size: 2em;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1;
+    }
+    .stat-label {
+      color: #64748b;
+      font-size: 0.8em;
+      margin-top: 6px;
+    }
+
+    /* 條列 */
+    .reveal ul { margin-left: 0; list-style-position: inside; }
+    .reveal ul li { margin: 0.4em 0; }
+
+    /* 封面 */
+    .cover h1 {
+      font-size: 2.6em;
+      line-height: 1.3;
+    }
+    .cover .subtitle {
+      color: #64748b;
+      margin-top: 20px;
+      font-size: 0.6em;
+    }
+
+    /* 一般調整 */
+    .reveal section {
+      text-align: center;
+    }
+    .reveal section img {
+      border: none;
+      box-shadow: none;
+      max-height: 400px;
+    }
+    .reveal pre {
+      box-shadow: none;
+      font-size: 0.55em;
+    }
+    .reveal code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #be185d;
+    }
+    .note {
+      color: #64748b;
+      font-size: 0.7em;
+      margin-top: 20px;
+    }
+
+    /* 架構圖 */
+    .arch {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      margin-top: 24px;
+      text-align: left;
+      font-size: 0.75em;
+    }
+    .arch-col h4 {
+      margin: 0 0 10px 0;
+      color: #64748b;
+      font-size: 0.9em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .arch-box {
+      background: #f8fafc;
+      border-left: 3px solid #cbd5e1;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+    }
+    .arch-box.accent { border-left-color: #10b981; background: #ecfdf5; }
+    .arch-box.line { border-left-color: #06C755; background: #f0fdf4; }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+      <!-- ═══════════════ 1. 封面 ═══════════════ -->
+      <section class="cover">
+        <h1>用 AI 做一個<br><span class="accent">LINE Bot 警訊系統</span></h1>
+        <p class="subtitle">
+          從想法到上線的協作紀錄<br>
+          <span class="muted">|  報告人：你的名字  |  日期：2026-04-19  |</span>
+        </p>
+      </section>
+
+      <!-- ═══════════════ 2. 緣起 ═══════════════ -->
+      <section>
+        <h2>一開始的需求</h2>
+        <p style="font-size: 1.2em; margin: 40px 0 20px 0; color: #334155;">
+          我是個基金顧問，每天都在看行情。
+        </p>
+        <ul style="font-size: 1em; max-width: 700px; margin: 0 auto; text-align: left; line-height: 2;">
+          <li>想在<span class="accent">價格動得比較大</span>時被提醒</li>
+          <li>想知道「現在是不是該建議客戶加碼或減碼」</li>
+          <li>不可能一整天盯盤——希望<span class="accent">系統自動幫我看</span></li>
+        </ul>
+      </section>
+
+      <!-- ═══════════════ 3. 成果一句話 ═══════════════ -->
+      <section>
+        <h2>結果：一個會自動關心我的 LINE Bot</h2>
+        <p class="muted" style="margin-bottom: 20px;">每天傍晚自動掃，有值得注意的變化才通知我。</p>
+        <div class="chat">
+          <div class="chat-name">基金警訊 Bot</div>
+          <div class="bubble bot">📊 2026/04/17 警訊摘要（5 檔監控中，2 檔觸發）
+
+━━━━━━━━━━
+高成長（03）
+NAV: 352.74 (2026/04/17)
+📈 反彈
+• 20D: +29.3% [觸發 10%]（低點 2026/03/31）← NEW
+📉 TD9: Sell Setup 9 完成於 2026/04/17 ← NEW</div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ 4. 系統在做什麼 ═══════════════ -->
+      <section>
+        <h2>它每天幫我做什麼？</h2>
+        <div class="flow" style="margin-top: 60px;">
+          <div class="flow-step">
+            <div style="font-size: 1.8em;">📋</div>
+            <div><strong>讀清單</strong></div>
+            <div class="muted small">我關注的 5 檔基金</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div style="font-size: 1.8em;">🌐</div>
+            <div><strong>抓淨值</strong></div>
+            <div class="muted small">到復華官網找當天價</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div style="font-size: 1.8em;">🧮</div>
+            <div><strong>判斷</strong></div>
+            <div class="muted small">漲跌 / 回檔 / 反彈</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step highlight">
+            <div style="font-size: 1.8em;">🔔</div>
+            <div><strong>通知</strong></div>
+            <div class="muted small">有事才推 LINE</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 50px;">
+          工作日晚上 22:00 自動跑，週末休息。<br>
+          沒有值得通知的事就靜悄悄，不吵人。
+        </p>
+      </section>
+
+      <!-- ═══════════════ 5. 前端後端 ═══════════════ -->
+      <section>
+        <h2>等等，什麼是「前端」和「後端」？</h2>
+        <p style="margin: 30px 0 20px 0;">用餐廳比喻就很清楚：</p>
+        <div class="compare" style="font-size: 0.9em;">
+          <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 12px; padding: 20px;">
+            <div style="font-size: 2em;">🍽️</div>
+            <div class="tag" style="background: #fde68a; color: #78350f;">前端 = 外場</div>
+            <div>你看得到的部分。<br>菜單、餐桌、服務生。</div>
+          </div>
+          <div style="background: #dbeafe; border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px;">
+            <div style="font-size: 2em;">👨‍🍳</div>
+            <div class="tag" style="background: #bfdbfe; color: #1e3a8a;">後端 = 廚房</div>
+            <div>看不到，但做真工。<br>食材、烹調、出菜。</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 30px;">
+          在我們這個 LINE Bot 裡：<br>
+          <span class="line-green">LINE 對話</span> = 前端（客戶看到的），
+          <span class="accent">我寫的程式</span> = 後端（抓資料、判斷、決定推什麼）
+        </p>
+      </section>
+
+      <!-- ═══════════════ 6. LINE Bot ═══════════════ -->
+      <section>
+        <h2>LINE Bot 是什麼？</h2>
+        <p style="font-size: 1.1em; margin: 20px 0;">
+          LINE 允許任何程式<strong>假裝成一個朋友</strong>。
+        </p>
+        <div style="background: #f0fdf4; border: 2px dashed #86efac; border-radius: 12px; padding: 30px; max-width: 720px; margin: 20px auto;">
+          <div style="text-align: left; line-height: 2;">
+            ✅ 可以<strong>主動推訊息</strong>給加好友的人（像我收到的警訊）<br>
+            ✅ 可以被<strong>@ 詢問</strong>，然後回覆（像查詢基金狀態）<br>
+            ✅ 可以加進<strong>群組</strong>，跟一群人互動
+          </div>
+        </div>
+        <p class="note">
+          商業帳號是免費的，每月 200 則訊息免費，之後依方案計費。
+        </p>
+      </section>
+
+      <!-- ═══════════════ 7. 整體架構 ═══════════════ -->
+      <section>
+        <h2>整體怎麼串起來</h2>
+        <div class="arch">
+          <div class="arch-col">
+            <h4>資料來源</h4>
+            <div class="arch-box">📋 Google Sheet<br><span class="muted small">我寫的基金清單 + 警戒值</span></div>
+            <div class="arch-box">🏦 復華官網<br><span class="muted small">每日淨值資料</span></div>
+          </div>
+          <div class="arch-col">
+            <h4>我的程式（後端）</h4>
+            <div class="arch-box accent">☁️ 在雲端 24/7 執行<br><span class="muted small">Vercel 自動排程</span></div>
+            <div class="arch-box accent">🧠 判斷邏輯<br><span class="muted small">漲跌 / 回檔 / 反彈 / TD9</span></div>
+            <div class="arch-box accent">💾 記憶體<br><span class="muted small">記住上次通知過什麼，避免重複</span></div>
+          </div>
+          <div class="arch-col">
+            <h4>通知管道</h4>
+            <div class="arch-box line">💬 LINE Bot<br><span class="muted small">推到我的手機</span></div>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 24px;">
+          所有元件都<strong>跑在線上</strong>，不用我開電腦、不用我操心——<br>
+          我只要看手機收通知就好。
+        </p>
+      </section>
+
+      <!-- ═══════════════ 8. Demo 1 ═══════════════ -->
+      <section>
+        <h2>成果展示 1：警訊長這樣</h2>
+        <div class="chat">
+          <div class="chat-name">基金警訊 Bot</div>
+          <div class="bubble bot">📊 2026/04/17 警訊摘要（5 檔監控中，2 檔觸發）
+
+━━━━━━━━━━
+<strong>高成長（03）</strong>
+NAV: 352.74 (2026/04/17)
+📈 反彈
+• 20D: +29.3% [觸發 10%]（低點 2026/03/31）← NEW
+📉 TD9: Sell Setup 9 完成於 2026/04/17 ← NEW
+
+━━━━━━━━━━
+<strong>物聯網（77）</strong>
+NAV: 70.73 (2026/04/16)
+📈 反彈
+• 20D: +32.5% [觸發 10%]（低點 2026/03/31）← NEW</div>
+        </div>
+        <p class="note" style="margin-top: 20px;">
+          一眼看出：<strong>哪幾檔動了、動多大、什麼時候開始動的</strong>。<br>
+          想跟客戶聊加減碼時，資訊都在手上。
+        </p>
+      </section>
+
+      <!-- ═══════════════ 9. Demo 2 ═══════════════ -->
+      <section>
+        <h2>成果展示 2：隨時問它現況</h2>
+        <div class="chat">
+          <div class="chat-name">你</div>
+          <div class="bubble user">/status</div>
+          <div class="chat-name">基金警訊 Bot</div>
+          <div class="bubble bot">📊 2026/04/17 狀態
+
+高成長（03）
+  20D: -7.2% | 60D: -12.8% | 252D: -15.3%
+  TD9: Sell Setup 9 完成
+
+物聯網（77）
+  20D: -2.1% | 60D: -3.4% | 252D: +5.2%
+  TD9: 無</div>
+        </div>
+        <p class="note" style="margin-top: 20px;">
+          想臨時看哪檔基金現在怎樣？傳一個指令就好。
+        </p>
+      </section>
+
+      <!-- ═══════════════ 10. 做了多久 ═══════════════ -->
+      <section>
+        <h2>整個過程有多快？</h2>
+        <div class="stats">
+          <div class="stat-card">
+            <div class="stat-num">~4 小時</div>
+            <div class="stat-label">從想法到上線（一個週六晚上）</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num">~40 輪</div>
+            <div class="stat-label">跟 AI 的對話</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num">~1,000 行</div>
+            <div class="stat-label">產出的程式碼 + 54 個自動測試</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num">≈ 0 行</div>
+            <div class="stat-label">我自己手動打的程式碼</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 30px;">
+          幾年前要做類似的東西，可能需要找工程師、花一兩週。<br>
+          現在我只需要會<strong>把需求講清楚</strong>。
+        </p>
+      </section>
+
+      <!-- ═══════════════ 11. AI 協作流程 ═══════════════ -->
+      <section>
+        <h2>跟 AI 協作的關鍵四步驟</h2>
+        <div class="flow" style="margin-top: 40px;">
+          <div class="flow-step">
+            <div style="font-size: 1.8em;">💭</div>
+            <strong>腦力激盪</strong>
+            <div class="muted small">把模糊想法聊清楚</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div style="font-size: 1.8em;">📋</div>
+            <strong>寫規格</strong>
+            <div class="muted small">確定做什麼、怎麼運作</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div style="font-size: 1.8em;">📝</div>
+            <strong>寫計畫</strong>
+            <div class="muted small">拆成小步驟</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step highlight">
+            <div style="font-size: 1.8em;">✅</div>
+            <strong>執行 + 檢查</strong>
+            <div class="muted small">AI 寫、我 review</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 40px;">
+          ⚠️ 不是一句「幫我做這個」就叫 AI 開始動工。<br>
+          <strong>前面聊清楚，後面省很多。</strong>
+        </p>
+      </section>
+
+      <!-- ═══════════════ 12. Prompt 心態 ═══════════════ -->
+      <section>
+        <h2>心態：把 AI 當成聰明的新同事</h2>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px;">
+          <div style="background: #f8fafc; border-radius: 12px; padding: 24px; text-align: left;">
+            <div style="font-size: 2em;">🧠</div>
+            <strong>他很聰明</strong>
+            <p class="muted" style="margin-top: 6px;">但不知道你這邊的脈絡——要主動給他背景。</p>
+          </div>
+          <div style="background: #f8fafc; border-radius: 12px; padding: 24px; text-align: left;">
+            <div style="font-size: 2em;">⚠️</div>
+            <strong>他會犯錯</strong>
+            <p class="muted" style="margin-top: 6px;">要檢查、要回饋。當成初階同事驗收。</p>
+          </div>
+          <div style="background: #f8fafc; border-radius: 12px; padding: 24px; text-align: left;">
+            <div style="font-size: 2em;">😌</div>
+            <strong>他不會生氣</strong>
+            <p class="muted" style="margin-top: 6px;">你可以改 10 次、20 次，直到你滿意為止。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ 13. Prompt 技巧 1 ═══════════════ -->
+      <section>
+        <h2>技巧 1：告訴他「為什麼」而不只是「做什麼」</h2>
+        <div class="compare">
+          <div class="bad">
+            <span class="tag">❌ 不夠好</span>
+            <div>"幫我做一個 LINE 通知，當基金跌的時候通知我。"</div>
+            <div class="muted" style="margin-top: 12px; font-size: 0.85em;">
+              AI 不知道你做什麼的、為誰服務、為什麼需要這個 → 會給你一個很通用、可能根本不對你需求的版本。
+            </div>
+          </div>
+          <div class="good">
+            <span class="tag">✅ 好很多</span>
+            <div>"我是基金顧問，監控幾檔復華基金。當基金從近期高點跌 5% / 10% / 20% 時我想被通知——這樣我才能主動聯絡客戶討論加減碼。該怎麼設計？"</div>
+            <div class="muted" style="margin-top: 12px; font-size: 0.85em;">
+              目的、角色、時機、要觸發什麼後續動作，都說清楚了。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ 14. Prompt 技巧 2 ═══════════════ -->
+      <section>
+        <h2>技巧 2：一次一個問題</h2>
+        <div class="compare">
+          <div class="bad">
+            <span class="tag">❌ 常見錯誤</span>
+            <div>"幫我做基金警訊 + 客戶 CRM + 每月報表 + 網站 + ..."</div>
+            <div class="muted" style="margin-top: 12px; font-size: 0.85em;">
+              一次要太多，AI 會做得很淺、很糟糕。
+            </div>
+          </div>
+          <div class="good">
+            <span class="tag">✅ 用對話方式</span>
+            <div>"先做警訊就好。"<br>→ AI 回、你確認<br>→ 再問「警訊要怎麼避免一直吵我？」<br>→ 再問「訊息格式要怎麼排？」</div>
+            <div class="muted" style="margin-top: 12px; font-size: 0.85em;">
+              像跟同事對話一樣，一題一題來。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ 15. Prompt 技巧 3 ═══════════════ -->
+      <section>
+        <h2>技巧 3：錯了就具體講哪裡錯</h2>
+        <p style="margin-top: 20px;">AI 給的第一版通常不會完美——關鍵是<strong>你的回饋要具體</strong>。</p>
+        <div class="compare">
+          <div class="bad">
+            <span class="tag">❌ 模糊</span>
+            <div>"這不對，改一下"</div>
+            <div class="muted" style="margin-top: 12px; font-size: 0.85em;">
+              AI 不知道哪裡錯、不知道你想要什麼，只能瞎猜。
+            </div>
+          </div>
+          <div class="good">
+            <span class="tag">✅ 具體</span>
+            <div>"日期現在顯示 <code>2026-03-31</code>，我希望用 <code>2026/03/31</code> 這種台灣常見格式，因為客戶比較好讀。"</div>
+            <div class="muted" style="margin-top: 12px; font-size: 0.85em;">
+              告訴 AI 現在是什麼、想變成什麼、為什麼——1 次就改對。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════ 16. 業務可以用 AI 做什麼 ═══════════════ -->
+      <section>
+        <h2>你的業務日常，可以用 AI 做什麼？</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 30px; text-align: left;">
+          <div class="arch-box">
+            ✉️ <strong>寫客戶信件草稿</strong><br>
+            <span class="muted small">中英文對照、不同語氣、不同場合</span>
+          </div>
+          <div class="arch-box">
+            📝 <strong>整理會議紀錄</strong><br>
+            <span class="muted small">錄音檔 → 摘要 → 待辦事項</span>
+          </div>
+          <div class="arch-box">
+            📊 <strong>做客戶簡報</strong><br>
+            <span class="muted small">產品資料 + 客戶背景 → 初稿</span>
+          </div>
+          <div class="arch-box">
+            🔍 <strong>分析資料</strong><br>
+            <span class="muted small">Excel 給它，問「最有潛力的 3 個客戶」</span>
+          </div>
+          <div class="arch-box">
+            📐 <strong>製作流程文件</strong><br>
+            <span class="muted small">你口述 → AI 整理成 SOP</span>
+          </div>
+          <div class="arch-box">
+            🌐 <strong>翻譯 / 校對</strong><br>
+            <span class="muted small">合約、信件、簡報、即時會議</span>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 30px;">
+          這些全部不需要任何程式技術——<strong>會用聊天就夠了</strong>。
+        </p>
+      </section>
+
+      <!-- ═══════════════ 17. 結語 ═══════════════ -->
+      <section>
+        <h2>踏出第一步</h2>
+        <div style="max-width: 700px; margin: 40px auto; text-align: left; line-height: 2.2; font-size: 1.05em;">
+          <p>1️⃣ 從<strong>每天都在做的重複工作</strong>開始找題目</p>
+          <p>2️⃣ <strong>直接跟 AI 聊</strong>就好，不用先學任何東西</p>
+          <p>3️⃣ <strong>錯了沒關係</strong>，改就是了——AI 不會煩</p>
+        </div>
+        <p style="margin-top: 50px; font-size: 1.3em;">
+          <span class="accent">有興趣想聊的，我都很樂意分享！</span>
+        </p>
+        <p class="muted" style="margin-top: 30px; font-size: 0.6em;">
+          🙏 謝謝大家
+        </p>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      slideNumber: 'c/t',
+      transition: 'fade',
+      controls: true,
+      progress: true,
+      center: true,
+    });
+  </script>
+</body>
+</html>

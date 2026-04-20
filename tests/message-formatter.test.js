@@ -113,14 +113,15 @@ test('formatMessage: daily change line only when triggered', () => {
 
 // --- formatStatus tests (for /status LINE command) ---
 
-test('formatStatus: drawdown shows negative % when price is below high', () => {
+test('formatStatus: shows period returns (negative when price fell)', () => {
   const summaries = [
     {
       fundId: '03',
       displayName: '高成長',
-      drawdowns: [
-        { label: '20D', dd: 7.2, high: { date: '2026-03-15', value: 380 } },
-        { label: '60D', dd: 12.8, high: { date: '2026-02-14', value: 400 } },
+      latest: { date: '2026-04-17', value: 100 },
+      returns: [
+        { label: '20D', ret: -7.2, from: { date: '2026-03-20', value: 107.76 } },
+        { label: '60D', ret: -12.8, from: { date: '2026-02-18', value: 114.68 } },
       ],
       td9: { buy: 0, sell: 0 },
     },
@@ -128,29 +129,43 @@ test('formatStatus: drawdown shows negative % when price is below high', () => {
   const out = formatStatus(summaries, { latestDate: '2026-04-17' });
   assert.match(out, /20D: -7\.2%/);
   assert.match(out, /60D: -12\.8%/);
-  // No bogus double-sign like "+-7.2"
   assert.doesNotMatch(out, /\+-/);
 });
 
-test('formatStatus: shows positive % when today sits above the window high', () => {
+test('formatStatus: shows positive % when price rose over the window', () => {
   const summaries = [
     {
       fundId: '03',
       displayName: '高成長',
-      // dd < 0 means today's price is above the window high (fresh high)
-      drawdowns: [{ label: '20D', dd: -3.5, high: { date: '2026-03-15', value: 100 } }],
+      latest: { date: '2026-04-17', value: 120 },
+      returns: [{ label: '20D', ret: 20.0, from: { date: '2026-03-20', value: 100 } }],
       td9: { buy: 0, sell: 0 },
     },
   ];
   const out = formatStatus(summaries, { latestDate: '2026-04-17' });
-  assert.match(out, /20D: \+3\.5%/);
+  assert.match(out, /20D: \+20\.0%/);
+});
+
+test('formatStatus: includes NAV line with value and date', () => {
+  const summaries = [
+    {
+      fundId: '03',
+      displayName: '高成長',
+      latest: { date: '2026-04-17', value: 352.74 },
+      returns: [{ label: '20D', ret: 5, from: { date: '2026-03-20', value: 336 } }],
+      td9: { buy: 0, sell: 0 },
+    },
+  ];
+  const out = formatStatus(summaries, { latestDate: '2026-04-17' });
+  assert.match(out, /NAV: 352\.74 \(2026\/04\/17\)/);
 });
 
 test('formatStatus: TD9 line shows buy/sell progress when count ≥ 6', () => {
   const base = {
     fundId: '03',
     displayName: 'x',
-    drawdowns: [{ label: '20D', dd: 0, high: { date: '2026-04-17', value: 100 } }],
+    latest: { date: '2026-04-17', value: 100 },
+    returns: [{ label: '20D', ret: 0, from: { date: '2026-03-20', value: 100 } }],
   };
   assert.match(
     formatStatus([{ ...base, td9: { buy: 7, sell: 0 } }], { latestDate: '2026-04-17' }),
@@ -164,6 +179,21 @@ test('formatStatus: TD9 line shows buy/sell progress when count ≥ 6', () => {
     formatStatus([{ ...base, td9: { buy: 3, sell: 0 } }], { latestDate: '2026-04-17' }),
     /TD9: 無/
   );
+});
+
+test('formatStatus: fundId with fetch error shows 抓取失敗 instead of NAV', () => {
+  const summaries = [
+    {
+      fundId: '99',
+      displayName: '壞基金',
+      latest: null,
+      returns: [],
+      td9: { buy: 0, sell: 0 },
+      error: 'HTTP 503',
+    },
+  ];
+  const out = formatStatus(summaries, { latestDate: '2026-04-17' });
+  assert.match(out, /⚠️ 抓取失敗/);
 });
 
 test('formatStatus: header uses YYYY/MM/DD date format', () => {
