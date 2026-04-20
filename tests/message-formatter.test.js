@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   formatMessage,
+  formatStatus,
   fmtDisplayDate,
 } = require('../lib/message-formatter');
 
@@ -108,4 +109,64 @@ test('formatMessage: daily change line only when triggered', () => {
     formatMessage([entry], { monitoredCount: 1, latestDate: '2026-04-17' }),
     /💬 單日: \+3\.2%/
   );
+});
+
+// --- formatStatus tests (for /status LINE command) ---
+
+test('formatStatus: drawdown shows negative % when price is below high', () => {
+  const summaries = [
+    {
+      fundId: '03',
+      displayName: '高成長',
+      drawdowns: [
+        { label: '20D', dd: 7.2, high: { date: '2026-03-15', value: 380 } },
+        { label: '60D', dd: 12.8, high: { date: '2026-02-14', value: 400 } },
+      ],
+      td9: { buy: 0, sell: 0 },
+    },
+  ];
+  const out = formatStatus(summaries, { latestDate: '2026-04-17' });
+  assert.match(out, /20D: -7\.2%/);
+  assert.match(out, /60D: -12\.8%/);
+  // No bogus double-sign like "+-7.2"
+  assert.doesNotMatch(out, /\+-/);
+});
+
+test('formatStatus: shows positive % when today sits above the window high', () => {
+  const summaries = [
+    {
+      fundId: '03',
+      displayName: '高成長',
+      // dd < 0 means today's price is above the window high (fresh high)
+      drawdowns: [{ label: '20D', dd: -3.5, high: { date: '2026-03-15', value: 100 } }],
+      td9: { buy: 0, sell: 0 },
+    },
+  ];
+  const out = formatStatus(summaries, { latestDate: '2026-04-17' });
+  assert.match(out, /20D: \+3\.5%/);
+});
+
+test('formatStatus: TD9 line shows buy/sell progress when count ≥ 6', () => {
+  const base = {
+    fundId: '03',
+    displayName: 'x',
+    drawdowns: [{ label: '20D', dd: 0, high: { date: '2026-04-17', value: 100 } }],
+  };
+  assert.match(
+    formatStatus([{ ...base, td9: { buy: 7, sell: 0 } }], { latestDate: '2026-04-17' }),
+    /TD9: Buy Setup 7\/9/
+  );
+  assert.match(
+    formatStatus([{ ...base, td9: { buy: 0, sell: 8 } }], { latestDate: '2026-04-17' }),
+    /TD9: Sell Setup 8\/9/
+  );
+  assert.match(
+    formatStatus([{ ...base, td9: { buy: 3, sell: 0 } }], { latestDate: '2026-04-17' }),
+    /TD9: 無/
+  );
+});
+
+test('formatStatus: header uses YYYY/MM/DD date format', () => {
+  const out = formatStatus([], { latestDate: '2026-04-17' });
+  assert.match(out, /📊 2026\/04\/17 狀態/);
 });
