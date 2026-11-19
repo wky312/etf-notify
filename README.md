@@ -97,6 +97,7 @@ etf-notify/
 | `FUND_ALERT_SHEET_CSV_URL` | Google Sheet 發布的 CSV URL | ✅ |
 | `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint | ✅ |
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token | ✅ |
+| `CRON_SECRET` | `/api/fund-alert`、`/api/auto-notify` 的 Bearer 驗證（Vercel Cron 自動帶上；未設定則一律 401） | ✅ |
 | `PUSHOVER_API_TOKEN` / `PUSHOVER_USER_KEY` | auto-notify 用 | 選用 |
 | `GEMINI_API_KEY` | auto-notify 的 OCR | 選用 |
 

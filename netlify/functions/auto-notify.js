@@ -128,10 +128,9 @@ async function pushLineMessage(text) {
 }
 
 /**
- * Main handler — triggered by Netlify Scheduled Function or manual invoke.
- * Flow: Pushover screenshot → Claude OCR → fetch NAV → calculate → LINE push
+ * Main flow: Pushover screenshot → Claude OCR → fetch NAV → calculate → LINE push
  */
-exports.handler = async (event) => {
+async function run() {
   try {
     // Step 1: Get screenshot from Pushover
     console.log('Fetching Pushover image...');
@@ -174,4 +173,17 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: e.message }),
     };
   }
+}
+
+const { isAuthorized } = require('../../lib/cron-auth');
+
+/**
+ * Netlify handler — manual invoke only; requires `Authorization: Bearer <CRON_SECRET>`.
+ */
+exports.handler = async (event) => {
+  if (!isAuthorized(event && event.headers)) {
+    return { statusCode: 401, body: 'Unauthorized' };
+  }
+  return run();
 };
+exports.run = run;
